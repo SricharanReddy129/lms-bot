@@ -1,0 +1,2 @@
+# .env
+AIVEN_DATABASE_URL="mysql://avnadmin:your_password@your-host.aivencloud.com:10000/defaultdb?ssl-mode=REQUIRED"
