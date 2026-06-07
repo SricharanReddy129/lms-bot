@@ -4,7 +4,7 @@ from sqlalchemy import text
 
 from app.core.database import get_db
 from app.api.interfaces import LoginInput, LoginResponse
-from app.core import login
+from app.core.login import login
 
 # Import the strictly private domain router
 from app.api.routes import router as service_router
@@ -15,7 +15,7 @@ app = FastAPI(title="LMS Bot API")
 # 1. PUBLIC ROUTES (Open to the internet)
 # ---------------------------------------------------------
 
-@app.post("/api/v1/login", response_model=LoginResponse, tags=["Public"])
+@app.post("/login", response_model=LoginResponse, tags=["Public"])
 async def authenticate_user(
     payload: LoginInput, 
     db: AsyncSession = Depends(get_db)

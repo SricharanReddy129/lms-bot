@@ -1,19 +1,28 @@
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 
-# This tells FastAPI to look for the token in the "Authorization: Bearer <token>" header
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
+# 1. Import HTTPBearer instead of OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+# 2. Initialize the standard bearer security scheme
+security = HTTPBearer()
+
+# 3. Change the dependency input to expect standard credentials
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """
-    Intercepts the HTTP request, extracts the keyless JWT, 
+    Intercepts the HTTP request, extracts the Bearer token, 
     and decodes the payload without signature validation.
     """
+    # 4. Extract the actual token string from the credentials object
+    token = credentials.credentials
+    
     try:
-        # Decode the token blindly. verify_signature=False is used because 
-        # the token was created with algorithm="none"
-        payload = jwt.decode(token, options={"verify_signature": False})
+        # Decode the token blindly, allowing the "none" algorithm
+        payload = jwt.decode(
+            token, 
+            options={"verify_signature": False}, 
+            algorithms=["none"]
+        )
         
         employee_id: str = payload.get("id")
         role: str = payload.get("role")
@@ -25,7 +34,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
                 detail="Invalid token payload: missing context."
             )
             
-        # Return the extracted context as a standard dictionary
         return {
             "id": int(employee_id),
             "role": role,

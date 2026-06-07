@@ -4,7 +4,7 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
-from app.api.interfaces import LeaveBalanceResponse
+from app.api.interfaces import LeaveBalanceResponse, LeaveBalanceInput
 from app.services.leave_balance_service import get_leave_balance
 
 # ---------------------------------------------------------
@@ -20,15 +20,17 @@ router = APIRouter(
 
 @router.get("/leaves/balance", response_model=LeaveBalanceResponse)
 async def fetch_leave_balance(
-    target_employee_id: Optional[int] = Query(None),
+    payload: LeaveBalanceInput = Depends(),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user) 
 ):
+    # Unpack the Pydantic input and current user dictionary into pure variables
     leave_record = await get_leave_balance(
         db=db, 
-        requester_id=current_user["id"],
-        requester_role=current_user["role"],
-        target_employee_id=target_employee_id
+        current_user=current_user,
+        target_employee_id=payload.target_employee_id
     )
     
+    # Returns the raw SQLAlchemy model object. 
+    # FastAPI automatically handles serialization into LeaveBalanceResponse JSON.
     return leave_record
