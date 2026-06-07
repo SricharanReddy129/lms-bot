@@ -4,8 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import the repository layer execution function
 from app.repositories.leave_balance_repo import get_leave_balance_by_employee_id
-from app.models.base import LeaveBalance
-from app.api.interfaces import LeaveBalanceInput, LeaveBalanceResponse
 
 async def get_leave_balance(
     db: AsyncSession,

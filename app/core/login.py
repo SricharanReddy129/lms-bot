@@ -4,12 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.login_repo import get_login_data
 from app.repositories.name_repo import get_name_by_employee_id
 from app.repositories.role_repo import get_role_by_employee_id
-from app.api.interfaces import LoginInput, LoginResponse
+from app.api.interfaces import LoginRequest, LoginResponse
 from app.core.create_token import create_token
 
 async def login(
         db: AsyncSession,
-        payload: LoginInput
+        payload: LoginRequest
 ) -> LoginResponse:
     
     # 1. Authenticate User
