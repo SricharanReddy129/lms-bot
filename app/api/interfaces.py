@@ -1,6 +1,17 @@
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from datetime import date
+
+# --- SHARED RECEIPT RECORD ---
+class ProcessedLeaveRecord(BaseModel):
+    leave_id: int
+    employee_id: int
+    employee_name: str
+    leave_type: str
+
+class RejectLeaveItem(BaseModel):
+    leave_id: int
+    reason: str
 
 # ---------------------------------------
 # INPUT SCHEMAS (Ingress Validation)
@@ -21,6 +32,12 @@ class LeaveApplicationRequest(BaseModel):
 
 class PendingLeavesRequest(BaseModel):
     target_employee_id: Optional[int] = None
+
+class ApproveLeaveRequest(BaseModel):
+    leave_ids: List[int] = Field(..., min_items=1)
+
+class RejectLeaveRequest(BaseModel):
+    rejections: List[RejectLeaveItem] = Field(..., min_items=1)
 
 # ---------------------------------------
 # OUTPUT SCHEMAS (Egress Serialization)
@@ -59,3 +76,13 @@ class PendingLeavesResponse(BaseModel):
     start_date: date
     end_date: date
     reason: Optional[str] = None
+
+class ApproveLeaveResponse(BaseModel):
+    status: str = "success"
+    message: str = "Leaves successfully approved."
+    data: List[ProcessedLeaveRecord]
+
+class RejectLeaveResponse(BaseModel):
+    status: str = "success"
+    message: str = "Leaves successfully rejected."
+    data: List[ProcessedLeaveRecord]

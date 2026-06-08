@@ -6,6 +6,8 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.api.interfaces import LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse
 from app.api.interfaces import LeaveApplicationRequest, LeaveApplicationResponse, PendingLeavesRequest, PendingLeavesResponse
+from app.api.interfaces import ApproveLeaveRequest, ApproveLeaveResponse
+from app.services.approve_leaves_service import approve_leaves as approve_leaves_service
 from app.services.leave_balance_service import get_leave_balance
 from app.services.get_all_holidays_services import get_all_holidays
 from app.services.apply_leave_service import apply_for_leave as apply_for_leave_service
@@ -73,3 +75,16 @@ async def fetch_pending_leaves(
     # Returns the raw SQLAlchemy model object. 
     # FastAPI automatically handles serialization into PendingLeavesResponse JSON.
     return pending_leaves
+
+@router.post("/leaves/approve", response_model=ApproveLeaveResponse)
+async def approve_leaves(
+    payload: ApproveLeaveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Your service logic that approves the leaves and returns an ApproveLeaveResponse
+    result = await approve_leaves_service(
+        db,
+        current_user,
+        payload.leave_ids)
+    return result

@@ -95,3 +95,13 @@ ALTER TABLE rejected_leaves
 ADD CONSTRAINT fk_rejected_emp 
 FOREIGN KEY (employee_id) REFERENCES employee_data(employee_id)
 ON DELETE CASCADE;
+
+ALTER TABLE approved_leaves 
+ADD COLUMN leave_type ENUM('earned', 'sick', 'parental') NOT NULL;
+
+ALTER TABLE rejected_leaves 
+ADD COLUMN leave_type ENUM('earned', 'sick', 'parental') NOT NULL,
+ADD COLUMN start_date DATE NOT NULL,
+ADD COLUMN end_date DATE NOT NULL,
+RENAME COLUMN reason TO applicant_reason,
+ADD COLUMN approver_reason TEXT NOT NULL;

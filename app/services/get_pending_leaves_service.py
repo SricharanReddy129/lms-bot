@@ -31,7 +31,6 @@ async def get_pending_leaves(
                     detail="No pending leaves found for any employee."
                 )
     else:
-        # Standard Applicant Logic
         if target_employee_id is None:
             target_employee_id = current_user["id"]
         elif target_employee_id != current_user["id"]:

@@ -9,24 +9,12 @@ class Base(DeclarativeBase):
     pass
 
 
-class ApprovedLeavesLeaveType(str, enum.Enum):
-    EARNED = 'earned'
-    SICK = 'sick'
-    PARENTAL = 'parental'
-
-
 class EmployeeRoleEmployeeRole(str, enum.Enum):
     APPROVER = 'approver'
     APPLICANT = 'applicant'
 
 
 class PendingLeavesLeaveType(str, enum.Enum):
-    EARNED = 'earned'
-    SICK = 'sick'
-    PARENTAL = 'parental'
-
-
-class RejectedLeavesLeaveType(str, enum.Enum):
     EARNED = 'earned'
     SICK = 'sick'
     PARENTAL = 'parental'
@@ -78,7 +66,6 @@ class ApprovedLeaves(Base):
     employee_id: Mapped[int] = mapped_column(Integer, nullable=False)
     start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     end_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    leave_type: Mapped[ApprovedLeavesLeaveType] = mapped_column(Enum(ApprovedLeavesLeaveType, values_callable=lambda cls: [member.value for member in cls]), nullable=False)
     leave_id: Mapped[Optional[int]] = mapped_column(Integer)
 
     employee: Mapped['EmployeeData'] = relationship('EmployeeData', back_populates='approved_leaves')
@@ -155,11 +142,10 @@ class RejectedLeaves(Base):
 
     sno: Mapped[int] = mapped_column(Integer, primary_key=True)
     employee_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    leave_type: Mapped[RejectedLeavesLeaveType] = mapped_column(Enum(RejectedLeavesLeaveType, values_callable=lambda cls: [member.value for member in cls]), nullable=False)
-    start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    approver_reason: Mapped[str] = mapped_column(Text, nullable=False)
     leave_id: Mapped[Optional[int]] = mapped_column(Integer)
-    applicant_reason: Mapped[Optional[str]] = mapped_column(Text)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+
+    employee: Mapped['EmployeeData'] = relationship('EmployeeData', back_populates='rejected_leaves')
+    reason: Mapped[Optional[str]] = mapped_column(Text)
 
     employee: Mapped['EmployeeData'] = relationship('EmployeeData', back_populates='rejected_leaves')
