@@ -4,10 +4,12 @@ from typing import List
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
-from app.api.interfaces import LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse
+from app.api.interfaces import ApprovedHistoryRequest, LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse
 from app.api.interfaces import LeaveApplicationRequest, LeaveApplicationResponse, PendingLeavesRequest, PendingLeavesResponse
 from app.api.interfaces import ApproveLeaveRequest, ApproveLeaveResponse, RejectLeaveRequest, RejectLeaveResponse
+from app.api.interfaces import ApprovedHistoryResponse
 from app.services.approve_leaves_service import approve_leaves as approve_leaves_service
+from app.services.approved_leaves_service import get_approved_leaves_service
 from app.services.leave_balance_service import get_leave_balance
 from app.services.get_all_holidays_services import get_all_holidays
 from app.services.apply_leave_service import apply_for_leave as apply_for_leave_service
@@ -105,4 +107,16 @@ async def reject_leaves(
         db=db,
         current_user=current_user,
         rejections_data=rejections_list
+    )
+
+@router.get("/leaves/history/approved", response_model=ApprovedHistoryResponse)
+async def get_approved_history(
+    filters: ApprovedHistoryRequest = Depends(),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    return await get_approved_leaves_service(
+        db=db,
+        current_user=current_user,
+        target_employee_id=filters.employee_id
     )

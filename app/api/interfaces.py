@@ -13,6 +13,15 @@ class RejectLeaveItem(BaseModel):
     leave_id: int
     reason: str
 
+class HistoryApprovedRecord(BaseModel):
+    history_id: int        # The 'sno' from the approved_leaves table
+    original_leave_id: int # The 'leave_id' tracking the original request
+    employee_id: int
+    employee_name: str
+    leave_type: str
+    start_date: date
+    end_date: date
+
 # ---------------------------------------
 # INPUT SCHEMAS (Ingress Validation)
 # ---------------------------------------
@@ -38,6 +47,9 @@ class ApproveLeaveRequest(BaseModel):
 
 class RejectLeaveRequest(BaseModel):
     rejections: List[RejectLeaveItem] = Field(..., min_items=1)
+
+class ApprovedHistoryRequest(BaseModel):
+    employee_id: Optional[int] = None
 
 # ---------------------------------------
 # OUTPUT SCHEMAS (Egress Serialization)
@@ -86,3 +98,8 @@ class RejectLeaveResponse(BaseModel):
     status: str = "success"
     message: str = "Leaves successfully rejected."
     data: List[ProcessedLeaveRecord]
+
+class ApprovedHistoryResponse(BaseModel):
+    status: str = "success"
+    message: str = "Approved leave history retrieved successfully."
+    data: List[HistoryApprovedRecord]
