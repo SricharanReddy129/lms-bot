@@ -7,9 +7,10 @@ from app.api.deps import get_current_user
 from app.api.interfaces import ApprovedHistoryRequest, LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse
 from app.api.interfaces import LeaveApplicationRequest, LeaveApplicationResponse, PendingLeavesRequest, PendingLeavesResponse
 from app.api.interfaces import ApproveLeaveRequest, ApproveLeaveResponse, RejectLeaveRequest, RejectLeaveResponse
-from app.api.interfaces import ApprovedHistoryResponse
+from app.api.interfaces import ApprovedHistoryResponse, RejectedHistoryResponse, RejectedHistoryFilter
 from app.services.approve_leaves_service import approve_leaves as approve_leaves_service
 from app.services.approved_leaves_service import get_approved_leaves_service
+from app.services.get_rejected_leaves_service import get_rejected_leaves_service
 from app.services.leave_balance_service import get_leave_balance
 from app.services.get_all_holidays_services import get_all_holidays
 from app.services.apply_leave_service import apply_for_leave as apply_for_leave_service
@@ -116,6 +117,18 @@ async def get_approved_history(
     current_user: dict = Depends(get_current_user)
 ):
     return await get_approved_leaves_service(
+        db=db,
+        current_user=current_user,
+        target_employee_id=filters.employee_id
+    )
+
+@router.get("/leaves/history/rejected", response_model=RejectedHistoryResponse)
+async def get_rejected_history(
+    filters: RejectedHistoryFilter = Depends(),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    return await get_rejected_leaves_service(
         db=db,
         current_user=current_user,
         target_employee_id=filters.employee_id

@@ -22,6 +22,17 @@ class HistoryApprovedRecord(BaseModel):
     start_date: date
     end_date: date
 
+class HistoryRejectedRecord(BaseModel):
+    history_id: int
+    original_leave_id: int
+    employee_id: int
+    employee_name: str
+    leave_type: str
+    start_date: date
+    end_date: date
+    applicant_reason: Optional[str]
+    approver_reason: str
+
 # ---------------------------------------
 # INPUT SCHEMAS (Ingress Validation)
 # ---------------------------------------
@@ -49,6 +60,9 @@ class RejectLeaveRequest(BaseModel):
     rejections: List[RejectLeaveItem] = Field(..., min_items=1)
 
 class ApprovedHistoryRequest(BaseModel):
+    employee_id: Optional[int] = None
+
+class RejectedHistoryFilter(BaseModel):
     employee_id: Optional[int] = None
 
 # ---------------------------------------
@@ -103,3 +117,8 @@ class ApprovedHistoryResponse(BaseModel):
     status: str = "success"
     message: str = "Approved leave history retrieved successfully."
     data: List[HistoryApprovedRecord]
+
+class RejectedHistoryResponse(BaseModel):
+    status: str = "success"
+    message: str = "Rejected leave history retrieved successfully."
+    data: List[HistoryRejectedRecord]
