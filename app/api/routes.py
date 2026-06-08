@@ -6,12 +6,13 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.api.interfaces import LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse
 from app.api.interfaces import LeaveApplicationRequest, LeaveApplicationResponse, PendingLeavesRequest, PendingLeavesResponse
-from app.api.interfaces import ApproveLeaveRequest, ApproveLeaveResponse
+from app.api.interfaces import ApproveLeaveRequest, ApproveLeaveResponse, RejectLeaveRequest, RejectLeaveResponse
 from app.services.approve_leaves_service import approve_leaves as approve_leaves_service
 from app.services.leave_balance_service import get_leave_balance
 from app.services.get_all_holidays_services import get_all_holidays
 from app.services.apply_leave_service import apply_for_leave as apply_for_leave_service
 from app.services.get_pending_leaves_service import get_pending_leaves as get_pending_leaves_service
+from app.services.reject_leave_service import reject_leaves_service
 
 # ---------------------------------------------------------
 # THE SECURE ZONE
@@ -88,3 +89,20 @@ async def approve_leaves(
         current_user,
         payload.leave_ids)
     return result
+
+@router.put("/leaves/reject", response_model=RejectLeaveResponse)
+async def reject_leaves(
+    request: RejectLeaveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # 1. Strip the Pydantic objects into a native Python list of dictionaries
+    # Result: [{"leave_id": 42, "reason": "Busy"}, ...]
+    rejections_list = [item.model_dump() for item in request.rejections]
+
+    # 2. Pass only primitive data down to the business logic
+    return await reject_leaves_service(
+        db=db,
+        current_user=current_user,
+        rejections_data=rejections_list
+    )
