@@ -19,6 +19,9 @@ class LeaveApplicationRequest(BaseModel):
     leave_type: Literal["earned", "sick", "parental"]
     reason: Optional[str] = Field(None, max_length=1000)
 
+class PendingLeavesRequest(BaseModel):
+    target_employee_id: Optional[int] = None
+
 # ---------------------------------------
 # OUTPUT SCHEMAS (Egress Serialization)
 # ---------------------------------------
@@ -47,3 +50,12 @@ class HolidayCalendarResponse(BaseModel):
 
 class LeaveApplicationResponse(BaseModel):
     status: str
+
+class PendingLeavesResponse(BaseModel):
+    leave_id: int
+    employee_id: int
+    employee_name: str
+    leave_type: str
+    start_date: date
+    end_date: date
+    reason: Optional[str] = None

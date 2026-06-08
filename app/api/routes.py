@@ -4,10 +4,12 @@ from typing import List
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
-from app.api.interfaces import LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse, LeaveApplicationRequest, LeaveApplicationResponse
+from app.api.interfaces import LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse
+from app.api.interfaces import LeaveApplicationRequest, LeaveApplicationResponse, PendingLeavesRequest, PendingLeavesResponse
 from app.services.leave_balance_service import get_leave_balance
 from app.services.get_all_holidays_services import get_all_holidays
 from app.services.apply_leave_service import apply_for_leave as apply_for_leave_service
+from app.services.get_pending_leaves_service import get_pending_leaves as get_pending_leaves_service
 
 # ---------------------------------------------------------
 # THE SECURE ZONE
@@ -54,3 +56,20 @@ async def apply_for_leave(
 ):
     result = await apply_for_leave_service(db, current_user, payload)
     return result
+
+@router.get("/leaves/pending", response_model=List[PendingLeavesResponse])
+async def fetch_pending_leaves(
+    payload: PendingLeavesRequest = Depends(),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Unpack the Pydantic input and current user dictionary into pure variables
+    pending_leaves = await get_pending_leaves_service(
+        db=db, 
+        current_user=current_user,
+        target_employee_id=payload.target_employee_id
+    )
+    
+    # Returns the raw SQLAlchemy model object. 
+    # FastAPI automatically handles serialization into PendingLeavesResponse JSON.
+    return pending_leaves

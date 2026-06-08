@@ -1,6 +1,5 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.base import LeaveBalance
 from app.models.base import PendingLeaves
 
 async def add_to_pending_leaves(
