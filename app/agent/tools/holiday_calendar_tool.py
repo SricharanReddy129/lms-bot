@@ -1,0 +1,27 @@
+import httpx
+from typing import Annotated, Dict, Any, List
+from pydantic import BaseModel, Field
+from langchain_core.tools import tool, InjectedToolArg
+
+# In a real setup, this comes from your app.core.config
+API_BASE_URL = "http://localhost:8000" 
+
+@tool
+async def view_holiday_calendar(
+    auth_token: Annotated[str, InjectedToolArg]
+) -> List[Dict[str, Any]]:
+    """
+    Retrieve the official company holiday calendar.
+    Use this tool whenever the user asks about upcoming holidays, company days off, or public holidays.
+    Takes zero parameters.
+    """
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{API_BASE_URL}/holidays", headers=headers)
+        
+        if response.status_code != 200:
+            # We return a list containing an error dict so it matches the expected return signature
+            return [{"error": f"Failed to fetch holidays. Status: {response.status_code}"}]
+            
+        return response.json()

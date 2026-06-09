@@ -16,3 +16,6 @@ pymysql>=1.1.0
 
 #---JWT Authentication---
 PyJWT
+
+langchain-core
+httpx
