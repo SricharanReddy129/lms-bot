@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from langchain_core.messages import HumanMessage
+from app.agent.graph import agent_app # Your compiled LangGraph application
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -8,6 +12,7 @@ from app.api.interfaces import ApprovedHistoryRequest, LeaveBalanceResponse, Lea
 from app.api.interfaces import LeaveApplicationRequest, LeaveApplicationResponse, PendingLeavesRequest, PendingLeavesResponse
 from app.api.interfaces import ApproveLeaveRequest, ApproveLeaveResponse, RejectLeaveRequest, RejectLeaveResponse
 from app.api.interfaces import ApprovedHistoryResponse, RejectedHistoryResponse, RejectedHistoryFilter
+from app.api.interfaces import ChatRequest
 from app.services.approve_leaves_service import approve_leaves as approve_leaves_service
 from app.services.approved_leaves_service import get_approved_leaves_service
 from app.services.get_rejected_leaves_service import get_rejected_leaves_service
@@ -27,6 +32,8 @@ router = APIRouter(
     tags=["Leave Management"],
     dependencies=[Depends(get_current_user)]
 )
+
+security = HTTPBearer()
 
 @router.get("/leaves/balance", response_model=LeaveBalanceResponse)
 async def fetch_leave_balance(
@@ -133,3 +140,21 @@ async def get_rejected_history(
         current_user=current_user,
         target_employee_id=filters.employee_id
     )
+
+@router.post("/chat")
+async def chat_with_agent(
+    payload: ChatRequest,
+    # 1. FastAPI extracts the token from the browser's Authorization header
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    # 2. Isolate the raw JWT string
+    raw_token = credentials.credentials
+    
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Missing authentication token")
+
+    # 3. Inject the token and the user's message into the Graph State
+    initial_state = {
+        "messages": [HumanMessage(content=payload.message)],
+        "auth_token": raw_token
+    }

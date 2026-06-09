@@ -65,6 +65,9 @@ class ApprovedHistoryRequest(BaseModel):
 class RejectedHistoryFilter(BaseModel):
     employee_id: Optional[int] = None
 
+class ChatRequest(BaseModel):
+    message: str
+
 # ---------------------------------------
 # OUTPUT SCHEMAS (Egress Serialization)
 # ---------------------------------------

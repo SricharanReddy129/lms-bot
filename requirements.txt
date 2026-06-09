@@ -17,5 +17,7 @@ pymysql>=1.1.0
 #---JWT Authentication---
 PyJWT
 
+#--- Agentic AI ---
 langchain-core
 httpx
+langgraph
