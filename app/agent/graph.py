@@ -16,20 +16,7 @@ from app.agent.tools.approve_leaves_tool import approve_leave_requests
 from app.agent.tools.reject_leaves_tool import reject_leave_requests
 from app.agent.tools.view_approved_leaves_tool import view_my_approved_leaves, view_team_approved_leaves
 from app.agent.tools.view_rejected_leaves_tool import view_my_rejected_leaves, view_team_rejected_leaves
-# =========================================================
-# SYSTEM CONFIGURATION
-# =========================================================
 
-LEAVE_ASSISTANT_PROMPT = """
-You are an intelligent, professional HR Leave Management Assistant.
-Your primary job is to help employees and managers handle time-off requests.
-Always use the provided tools to check balances, view history, or take action.
-
-CRITICAL RULES:
-1. Never guess or hallucinate leave balances or system data. Always fetch it.
-2. If a tool returns an error (like a 403 Forbidden or 404 Not Found), politely apologize to the user and explain the exact reason given by the system.
-3. Be concise and professional in your responses.
-"""
 
 # =========================================================
 # LLM & TOOL INITIALIZATION
