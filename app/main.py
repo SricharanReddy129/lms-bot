@@ -8,6 +8,7 @@ from app.core.login import login
 
 # Import the strictly private domain router
 from app.api.routes import router as service_router
+from app.api.routes import router as agent_router
 
 app = FastAPI(title="LMS Bot API")
 
@@ -56,3 +57,4 @@ async def test_database_connection(db: AsyncSession = Depends(get_db)):
 # Mount the domain router. Because it was defined with 
 # dependencies=[Depends(get_current_user)], it is completely secure.
 app.include_router(service_router)
+app.include_router(agent_router, prefix="/api/v1", tags=["Agent"])

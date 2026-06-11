@@ -1,7 +1,10 @@
 import httpx
-from typing import Annotated, Dict, Any, List
+from typing import Dict, Any, List
 from pydantic import BaseModel, Field
-from langchain_core.tools import tool, InjectedToolArg
+from langchain_core.tools import tool
+
+# Internal context storage for network-decoupled auth
+from app.core.context import auth_token_var 
 
 # Global configuration for the API Gateway
 API_BASE_URL = "http://localhost:8000"
@@ -19,15 +22,17 @@ class ApproveLeaveInput(BaseModel):
 
 @tool(args_schema=ApproveLeaveInput)
 async def approve_leave_requests(
-    leave_ids: List[int],
-    auth_token: Annotated[str, InjectedToolArg]
+    leave_ids: List[int]
 ) -> Dict[str, Any]:
     """
     Approve one or multiple pending leave requests by their specific leave IDs.
     This tool is strictly reserved for managers and approvers.
     Use this tool whenever an approver explicitly instructs you to approve a leave.
     """
-    headers = {"Authorization": f"Bearer {auth_token}"}
+    # Retrieve JWT securely from the async request context (populated at the FastAPI route level)
+    # This prevents the LLM from seeing or hallucinating auth parameters in the schema
+    token = auth_token_var.get()
+    headers = {"Authorization": f"Bearer {token}"}
     
     # Construct the JSON payload matching the ApproveLeaveRequest Pydantic model
     payload = {

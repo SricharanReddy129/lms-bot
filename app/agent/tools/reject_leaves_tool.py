@@ -1,7 +1,10 @@
 import httpx
-from typing import Annotated, Dict, Any, List
+from typing import Dict, Any, List
 from pydantic import BaseModel, Field
-from langchain_core.tools import tool, InjectedToolArg
+from langchain_core.tools import tool
+
+# Internal context storage for network-decoupled auth
+from app.core.context import auth_token_var
 
 # Global configuration for the API Gateway
 API_BASE_URL = "http://localhost:8000"
@@ -29,15 +32,17 @@ class RejectLeaveInput(BaseModel):
 
 @tool(args_schema=RejectLeaveInput)
 async def reject_leave_requests(
-    rejections: List[RejectLeaveItem],
-    auth_token: Annotated[str, InjectedToolArg]
+    rejections: List[RejectLeaveItem]
 ) -> Dict[str, Any]:
     """
     Reject one or multiple pending leave requests by their specific leave IDs.
     A valid reason MUST be provided for every rejected leave.
     This tool is strictly reserved for managers and approvers.
     """
-    headers = {"Authorization": f"Bearer {auth_token}"}
+    # Retrieve JWT securely from the async request context
+    # Keeps the network layer invisible to LangGraph and Pydantic
+    token = auth_token_var.get()
+    headers = {"Authorization": f"Bearer {token}"}
     
     # Construct the JSON payload matching the backend's RejectLeaveRequest model
     payload = {

@@ -1,7 +1,10 @@
 import httpx
-from typing import Annotated, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
-from langchain_core.tools import tool, InjectedToolArg
+from langchain_core.tools import tool
+
+# Internal context storage for network-decoupled auth
+from app.core.context import auth_token_var
 
 # Global configuration for the API Gateway
 API_BASE_URL = "http://localhost:8000"
@@ -11,15 +14,15 @@ API_BASE_URL = "http://localhost:8000"
 # =========================================================
 
 @tool
-async def view_my_approved_leaves(
-    auth_token: Annotated[str, InjectedToolArg]
-) -> Dict[str, Any]:
+async def view_my_approved_leaves() -> Dict[str, Any]:
     """
     Retrieve the history of approved leave requests for the currently logged-in employee.
     Use this tool ONLY when an employee asks to see their own approved leaves or past time off.
     Takes no parameters.
     """
-    headers = {"Authorization": f"Bearer {auth_token}"}
+    # Retrieve JWT invisibly from the background request context
+    token = auth_token_var.get()
+    headers = {"Authorization": f"Bearer {token}"}
     
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -36,7 +39,6 @@ async def view_my_approved_leaves(
         return response.json()
     
 
-
 # =========================================================
 # APPROVER ONLY TOOL: View Team Approved Leaves
 # =========================================================
@@ -49,15 +51,17 @@ class TeamApprovedLeavesInput(BaseModel):
 
 @tool(args_schema=TeamApprovedLeavesInput)
 async def view_team_approved_leaves(
-    employee_id: Optional[int],
-    auth_token: Annotated[str, InjectedToolArg]
+    employee_id: Optional[int]
 ) -> Dict[str, Any]:
     """
     Retrieve the history of approved leave requests for the team. 
     Can fetch history for everyone, or filter by a specific employee ID.
     This tool is strictly for managers and approvers checking past records.
     """
-    headers = {"Authorization": f"Bearer {auth_token}"}
+    # Retrieve JWT securely from the async request context
+    # Keeps Pydantic schema completely clean of auth requirements
+    token = auth_token_var.get()
+    headers = {"Authorization": f"Bearer {token}"}
     
     # Only attach the query parameter if the LLM extracted a specific ID
     params = {}

@@ -21,3 +21,5 @@ PyJWT
 langchain-core
 httpx
 langgraph
+langchain-ollama
+langsmith

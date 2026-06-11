@@ -1,5 +1,6 @@
 # app/core/config.py
 import os
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -8,6 +9,12 @@ class Settings(BaseSettings):
     FastAPI will automatically read the .env file and populate these fields.
     """
     AIVEN_DATABASE_URL: str = os.getenv("AIVEN_DATABASE_URL", "")
+
+    # Explicitly whitelist the LangSmith variables as optional strings
+    langsmith_tracing: Optional[str] = True  # Default to True for tracing
+    langsmith_endpoint: Optional[str] = None
+    langsmith_api_key: Optional[str] = None
+    langsmith_project: Optional[str] = None
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:

@@ -1,7 +1,10 @@
-from typing import Annotated, Dict, Any, List, Optional
-from pydantic import BaseModel, Field
-from langchain_core.tools import tool, InjectedToolArg
 import httpx
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
+from langchain_core.tools import tool
+
+# Internal context storage for network-decoupled auth
+from app.core.context import auth_token_var
 
 API_BASE_URL = "http://localhost:8000" 
 
@@ -10,15 +13,15 @@ API_BASE_URL = "http://localhost:8000"
 # =========================================================
 
 @tool
-async def view_my_pending_leaves(
-    auth_token: Annotated[str, InjectedToolArg]
-) -> List[Dict[str, Any]]:
+async def view_my_pending_leaves() -> List[Dict[str, Any]]:
     """
     Retrieve the pending leave requests for the currently logged-in employee.
     Use this tool ONLY when an employee asks to see their own pending leaves.
     Takes no parameters.
     """
-    headers = {"Authorization": f"Bearer {auth_token}"}
+    # Retrieve JWT invisibly from the background request context
+    token = auth_token_var.get()
+    headers = {"Authorization": f"Bearer {token}"}
     
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{API_BASE_URL}/leaves/pending", headers=headers)
@@ -44,15 +47,16 @@ class TeamPendingLeavesInput(BaseModel):
 
 @tool(args_schema=TeamPendingLeavesInput)
 async def view_team_pending_leaves(
-    target_employee_id: Optional[int],
-    auth_token: Annotated[str, InjectedToolArg]
+    target_employee_id: Optional[int]
 ) -> List[Dict[str, Any]]:
     """
     Retrieve pending leave requests for the team. 
     Can fetch requests for everyone, or filter by a specific employee ID.
     This tool is strictly for managers and approvers.
     """
-    headers = {"Authorization": f"Bearer {auth_token}"}
+    # Retrieve JWT securely from the async request context
+    token = auth_token_var.get()
+    headers = {"Authorization": f"Bearer {token}"}
     
     # Only attach the query parameter if the LLM extracted a specific ID
     params = {}
@@ -70,7 +74,7 @@ async def view_team_pending_leaves(
         if response.status_code == 403:
             return [{"error": "Permission Denied: You do not have permission to view other employees' pending leaves."}]
         elif response.status_code == 404:
-             return [{"error": f"No pending leaves found."}]
+             return [{"error": "No pending leaves found."}]
         elif response.status_code != 200:
              return [{"error": f"System error. Status: {response.status_code}"}]
              
