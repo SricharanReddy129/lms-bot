@@ -7,6 +7,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 # 2. Initialize the standard bearer security scheme
 security = HTTPBearer()
 
+# Import the locker
+from app.core.context import auth_token_var
+
 # 3. Change the dependency input to expect standard credentials
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """
@@ -45,3 +48,22 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not decode credentials."
         )
+    
+async def get_and_set_auth_token(
+    credentials: HTTPAuthorizationCredentials = Security(security)
+) -> str:
+    """
+    Extracts the JWT token from the incoming HTTP request header 
+    and securely stores it in the background context variable for the duration of the request.
+    """
+    token = credentials.credentials
+    
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing authentication token")
+    
+    # THE CRITICAL STEP: Drop the token into the background context memory.
+    # From this exact millisecond forward, any tool executed within this 
+    # specific API request thread can call `auth_token_var.get()` to find it.
+    auth_token_var.set(token)
+    
+    return token

@@ -4,7 +4,11 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from langchain_core.messages import HumanMessage
-from app.agent.graph import agent_app # Your compiled LangGraph application
+
+# Compiled LangGraph application
+from app.agent.graph import agent_app
+# Import the token extractor/setter dependency
+from app.api.deps import get_and_set_auth_token
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -144,17 +148,14 @@ async def get_rejected_history(
 @router.post("/chat")
 async def chat_with_agent(
     payload: ChatRequest,
-    # FastAPI automatically pulls the token from the browser's Authorization header
-    credentials: HTTPAuthorizationCredentials = Security(security)
+    # FastAPI runs this dependency first: it validates the header and invisibly 
+    # sets auth_token_var in the background context for the tools to find later.
+    token: str = Depends(get_and_set_auth_token)
 ):
-    raw_token = credentials.credentials
-    if not raw_token:
-        raise HTTPException(status_code=401, detail="Authentication token missing")
-
-    # Pack the user's message and the token into the initial graph state
+    # The LangGraph state is now completely decoupled from security.
+    # We ONLY pass the conversational messages to the AI's memory.
     initial_state = {
-        "messages": [HumanMessage(content=payload.message)],
-        "auth_token": raw_token
+        "messages": [HumanMessage(content=payload.message)]
     }
 
     try:
