@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 # Internal context storage for network-decoupled auth
 from app.core.context import auth_token_var
 
-API_BASE_URL = "http://localhost:8000" 
+API_BASE_URL = "http://localhost:8000/api/v1" 
 
 # =========================================================
 # 5. APPLICANT TOOL: View Personal Pending Leaves
@@ -15,7 +15,8 @@ API_BASE_URL = "http://localhost:8000"
 @tool
 async def view_my_pending_leaves() -> List[Dict[str, Any]]:
     """
-    Retrieve the pending leave requests for the currently logged-in employee.
+    Retrieve the pending leave requests or can be called as applied leaves
+    for the currently logged-in employee.
     Use this tool ONLY when an employee asks to see their own pending leaves.
     Takes no parameters.
     """
@@ -50,7 +51,7 @@ async def view_team_pending_leaves(
     target_employee_id: Optional[int]
 ) -> List[Dict[str, Any]]:
     """
-    Retrieve pending leave requests for the team. 
+    Retrieve pending leave requests or can be called as applied leaves for the team. 
     Can fetch requests for everyone, or filter by a specific employee ID.
     This tool is strictly for managers and approvers.
     """

@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 from app.core.context import auth_token_var 
 
 # Global configuration for the API Gateway
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = "http://localhost:8000/api/v1"
 
 class LeaveApplicationInput(BaseModel):
     start_date: date = Field(

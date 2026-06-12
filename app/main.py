@@ -60,4 +60,3 @@ async def test_database_connection(db: AsyncSession = Depends(get_db)):
 # Mount the domain router. Because it was defined with 
 # dependencies=[Depends(get_current_user)], it is completely secure.
 app.include_router(service_router)
-app.include_router(agent_router, prefix="/api/v1", tags=["Agent"])
