@@ -1,16 +1,15 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from langchain_core.messages import HumanMessage
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer
 
 # Compiled LangGraph application
-from app.agent.graph import agent_app
+from app.agent.graph import invoke_agent
 # Import the token extractor/setter dependency
 from app.api.deps import get_and_set_auth_token
 # import starting chat function
-from app.agent.graph import run_chat_agent
+
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.api.interfaces import ApprovedHistoryRequest, LeaveBalanceResponse, LeaveBalanceRequest, HolidayCalendarResponse
@@ -154,7 +153,7 @@ async def chat_with_agent(
 ):
     try:
         # 2. The route cleanly passes execution to the service layer
-        ai_response = await run_chat_agent(payload.message)
+        ai_response = await invoke_agent(payload.message)
         
         # 3. Return the formatted JSON
         return {

@@ -50,7 +50,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     
 async def get_and_set_auth_token(
-    credentials: HTTPAuthorizationCredentials = Security(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> str:
     """
     Extracts the JWT token from the incoming HTTP request header 

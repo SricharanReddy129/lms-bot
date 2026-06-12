@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -9,6 +10,8 @@ from app.core.login import login
 # Import the strictly private domain router
 from app.api.routes import router as service_router
 from app.api.routes import router as agent_router
+
+load_dotenv()
 
 app = FastAPI(title="LMS Bot API")
 
