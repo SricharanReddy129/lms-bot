@@ -1,6 +1,9 @@
 from langsmith import traceable
 from langgraph.prebuilt import ToolNode
 from langchain_ollama import ChatOllama
+from langchain_groq import ChatGroq
+
+from dotenv import load_dotenv
 
 # Import your prompt template and state
 from app.agent.prompt import agent_prompt
@@ -15,6 +18,8 @@ from app.agent.tools.approve_leaves_tool import approve_leave_requests
 from app.agent.tools.reject_leaves_tool import reject_leave_requests
 from app.agent.tools.view_approved_leaves_tool import view_my_approved_leaves, view_team_approved_leaves
 from app.agent.tools.view_rejected_leaves_tool import view_my_rejected_leaves, view_team_rejected_leaves
+
+load_dotenv()
 
 # =========================================================
 # 1. TOOL AGGREGATION & NODE SETUP
@@ -34,9 +39,10 @@ tool_node = ToolNode(tools)
 # 2. LLM INITIALIZATION & BINDING
 # =========================================================
 
-# Initialize the local Llama 3.1 model via Ollama
-llm = ChatOllama(
-    model="llama3.1",
+# Initialize the Llama 3.3 70B model via Groq's high-speed LPU inference
+# Temperature 0 ensures strict adherence to your tools, schemas, and cognitive framework
+llm = ChatGroq(
+    model="llama-3.3-70b-versatile",
     temperature=0,
 )
 

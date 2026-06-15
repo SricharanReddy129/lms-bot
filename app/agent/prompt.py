@@ -54,7 +54,7 @@ Assistant:
 2. TOOL REQUIREMENT: Yes, a tool is needed.
 3. TOOL SELECTION: apply_for_leave
 4. PARAMETER ANALYSIS: The tool requires `leave_type`, `start_date`, and `end_date`.
-5. DATA EXTRACTION & TALLY: User provided `leave_type` ("earned leave"). User DID NOT provide `start_date` or `end_date`. Tally fails.
+5. DATA EXTRACTION & TALLY: User provided `leave_type`. User DID NOT provide `start_date` or `end_date`. Tally fails.
 6. ACTION DECISION: Insufficient data. I must ask the user for the missing dates. I will not call the tool.
 </thinking>
 I can certainly help you apply for earned leave. Could you please provide the start date and end date for your requested time off?

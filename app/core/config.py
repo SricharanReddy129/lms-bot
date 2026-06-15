@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     langsmith_endpoint: Optional[str] = None
     langsmith_api_key: Optional[str] = None
     langsmith_project: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None        
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:
