@@ -42,7 +42,7 @@ tool_node = ToolNode(tools)
 # Initialize the Llama 3.3 70B model via Groq's high-speed LPU inference
 # Temperature 0 ensures strict adherence to your tools, schemas, and cognitive framework
 llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
+    model="openai/gpt-oss-20b",
     temperature=0,
 )
 
