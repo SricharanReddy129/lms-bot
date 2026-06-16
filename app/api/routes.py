@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Body
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer
 
-# Compiled LangGraph application
-from app.agent.graph import invoke_agent
+# Import your compiled graph and context variables
+from app.agent.nodes import agent_app, init_context
+from app.core.context import auth_token_var, db_session_var
+from app.core.database import get_db
+
 # Import the token extractor/setter dependency
 from app.api.deps import get_and_set_auth_token
-# import starting chat function
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -146,23 +149,34 @@ async def get_rejected_history(
     )
 
 @router.post("/chat")
-async def chat_with_agent(
-    payload: ChatRequest,
-    # 1. FastAPI intercepts the header and sets the background context variable
-    token: str = Depends(get_and_set_auth_token)
+async def chat_endpoint(
+    user_message: str = Body(..., embed=True), 
+    authorization: str = Header(...),
+    db: AsyncSession = Depends(get_db)
 ):
-    try:
-        # 2. The route cleanly passes execution to the service layer
-        ai_response = await invoke_agent(payload.message)
-        
-        # 3. Return the formatted JSON
-        return {
-            "status": "success",
-            "response": ai_response
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Agent execution failed: {str(e)}"
-        )
+    # 1. Set the global context variables
+    token = authorization.split(" ")[1] if " " in authorization else authorization
+    auth_token_var.set(token)
+    db_session_var.set(db)
+    
+    # 2. Initialize state using just the raw string (LangGraph auto-casts to HumanMessage)
+    initial_state = {
+        "messages": [user_message]
+    }
+    
+    # 3. Define the asynchronous generator for token streaming
+    async def token_generator():
+        # Listen to all events happening inside the graph execution
+        async for event in agent_app.astream_events(initial_state, version="v2"):
+            kind = event["event"]
+            
+            # Filter strictly for the LLM generating a new token
+            if kind == "on_chat_model_stream":
+                # Extract the specific word/character chunk
+                content = event["data"]["chunk"].content
+                if content:
+                    # Yield it immediately to the active HTTP connection
+                    yield content
+
+    # 4. Return the generator wrapped in a FastAPI StreamingResponse
+    return StreamingResponse(token_generator(), media_type="text/event-stream")
