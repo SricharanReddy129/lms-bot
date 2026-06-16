@@ -80,9 +80,12 @@ Assistant:
 agent_prompt = ChatPromptTemplate.from_messages([
     ("system", system_instruction),
     
-    # The 'messages' placeholder serves a dual purpose in LangGraph:
-    # 1. It automatically injects the past conversation history (HumanMessage, AIMessage).
-    # 2. It acts as the "scratchpad" for the agent, holding the intermediate ToolCall 
-    #    requests and the resulting ToolMessage responses before the final answer is generated.
+    # Placeholder 1: The dynamic user identity payload
+    MessagesPlaceholder(variable_name="dynamic_user_context"),
+    
+    # Placeholder 2: The database history
+    MessagesPlaceholder(variable_name="history"),
+    
+    # Placeholder 3: The active graph timeline
     MessagesPlaceholder(variable_name="messages"),
 ])

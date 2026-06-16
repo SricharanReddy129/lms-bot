@@ -1,7 +1,7 @@
 from langsmith import traceable
 from langgraph.prebuilt import ToolNode
-from langchain_ollama import ChatOllama
 from langchain_groq import ChatGroq
+from langchain_core.messages import SystemMessage
 
 from dotenv import load_dotenv
 
@@ -121,16 +121,50 @@ async def initialize_context(state: dict) -> dict:
 # 4. THE EXECUTION NODE
 # =========================================================
 
-@traceable
-async def call_model(state: AgentState):
-    """The primary node that injects the system prompt and calls the LLM."""
+async def call_model(state: AgentState) -> dict:
+    """
+    Node 2: The primary reasoning engine.
+    Formats the segregated memory arrays, enforces strict identity extraction,
+    and executes the tool-bound LLM.
+    """
+    # 1. Safely extract the memory dictionaries from the state
+    user_ctx = state.get("user_context", {})
+    memory = state.get("long_term_memory", {})
     
-    # Pipe the messages into the prompt template, then into the LLM.
-    # The ChatPromptTemplate automatically handles the MessagesPlaceholder.
+    # 2. Strict Zero-Trust Extraction
+    # Using direct bracket notation instead of .get() intentionally.
+    # If the JWT token was somehow missing these claims, the graph execution 
+    # will halt immediately with a KeyError, preventing an unauthenticated ghost-run.
+    name = user_ctx["employee_name"]
+    role = user_ctx["role"]
+    id = user_ctx["id"]
+    
+    # 3. Dynamically construct the user context message
+    context_string = f"Current Session Context:\nUser Name: {name}\nRole: {role}\nEmployee ID: {id}"
+    context_message = SystemMessage(content=context_string)
+    
+    # 4. Map all variables exactly to the Prompt Template placeholders
+    prompt_args = {
+        # Wrapped in a list to satisfy the MessagesPlaceholder requirement
+        "dynamic_user_context": [context_message], 
+        
+        # The database history array from Node 1 (falls back to empty list if new user)
+        "history": memory.get("recent_history_slice", []),
+        
+        # The active graph timeline (including the user's immediate question)
+        "messages": state["messages"] 
+    }
+    
+    # 5. Bind the secure HR tools to the LLM
+    llm_with_tools = llm.bind_tools(tools)
+    
+    # 6. Pipe the fully populated prompt into the tool-bound LLM
     chain = agent_prompt | llm_with_tools
     
-    # The LLM reads the formatted messages. 
-    # Network auth is completely invisible here (handled by contextvars).
-    response = await chain.ainvoke({"messages": state["messages"]})
+    # 7. Execute the chain
+    # Streaming tokens will be caught natively by your FastAPI astream_events router
+    response = await chain.ainvoke(prompt_args)
     
+    # 8. Return the partial state update
+    # The 'add_messages' reducer will append this AIMessage to state["messages"]
     return {"messages": [response]}
