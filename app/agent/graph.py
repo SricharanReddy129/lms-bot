@@ -47,7 +47,6 @@ async def invoke_agent(user_message: str) -> str:
         "messages": [HumanMessage(content=user_message)]
     }
 
-    # CRITICAL FIX: Await the compiled graph (agent_app), NOT just the single node.
     # This starts the actual execution engine and tool-calling loop.
     final_state = await agent_app.ainvoke(initial_state)
     
