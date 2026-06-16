@@ -16,6 +16,7 @@ from app.agent.state import AgentState
 
 # import the database fetch functions
 from app.repositories.fetch_chat_history_repo import fetch_chat_history_from_mysql
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import all individual tool files based on your directory structure
 from app.agent.tools.leave_balance_tool import view_my_leave_balance, view_employee_leave_balance
@@ -68,6 +69,7 @@ async def initialize_context(state: dict) -> dict:
     """
     # Your existing context variable (set by your FastAPI middleware/dependency)
     auth_token_var: contextvars.ContextVar[str] = contextvars.ContextVar("auth_token")
+    db_session_var: contextvars.ContextVar[AsyncSession] = contextvars.ContextVar("db_session")
 
     # Step 1: Intercept the raw token securely
     try:
@@ -88,7 +90,8 @@ async def initialize_context(state: dict) -> dict:
         raise ValueError("Invalid token format or failed to decode payload.")
 
     # Step 3: Fetch long-term memory from MySQL using the newly decoded ID
-    db_row = await fetch_chat_history_from_mysql(employee_id=user_data["employee_id"])
+    db_session = db_session_var.get()
+    db_row = await fetch_chat_history_from_mysql(db_session=db_session, employee_id=user_data["employee_id"])
 
     # Step 4: Deserialize and prepare the state payload
     if db_row:
@@ -115,7 +118,7 @@ async def initialize_context(state: dict) -> dict:
     }
 
 # =========================================================
-# 3. THE EXECUTION NODE
+# 4. THE EXECUTION NODE
 # =========================================================
 
 @traceable
