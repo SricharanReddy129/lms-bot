@@ -1,14 +1,16 @@
 import jwt
 from fastapi import Depends, HTTPException, status
-
-# 1. Import HTTPBearer instead of OAuth2PasswordBearer
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 # 2. Initialize the standard bearer security scheme
 security = HTTPBearer()
 
 # Import the locker
-from app.core.context import auth_token_var
+from app.core.context import auth_token_var, db_session_var
+
+from app.core.database import get_db
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # 3. Change the dependency input to expect standard credentials
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
@@ -67,3 +69,18 @@ async def get_and_set_auth_token(
     auth_token_var.set(token)
     
     return token
+
+async def get_and_set_db_session(
+    db: AsyncSession = Depends(get_db)
+) -> AsyncSession:
+    """
+    Extracts the database session from the FastAPI dependency and 
+    securely stores it in the background context variable for the duration of the request.
+    """
+    if not db:
+        raise HTTPException(status_code=500, detail="Database session could not be established.")
+    
+    # Store the DB session in the context variable for global access
+    db_session_var.set(db)
+    
+    return db

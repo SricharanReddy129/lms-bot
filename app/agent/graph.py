@@ -6,7 +6,7 @@ from app.agent.state import AgentState
 from app.agent.nodes import initialize_context, call_model, tool_node, save_memory
 
 
-def build_agent_graph():
+def agent_graph():
     """
     Constructs and wires the deterministic routing for the HR Leave Agent.
     """
@@ -53,4 +53,4 @@ def build_agent_graph():
     return builder.compile()
 
 # This is the compiled object your FastAPI route will import and invoke
-agent_app = build_agent_graph()
+agent_app = agent_graph()

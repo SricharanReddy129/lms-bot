@@ -6,12 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer
 
 # Import your compiled graph and context variables
-from app.agent.nodes import agent_app, init_context
+from app.agent.graph import agent_app
 from app.core.context import auth_token_var, db_session_var
 from app.core.database import get_db
 
 # Import the token extractor/setter dependency
-from app.api.deps import get_and_set_auth_token
+from app.api.deps import get_and_set_auth_token, get_and_set_db_session
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -151,40 +151,23 @@ async def get_rejected_history(
 @router.post("/chat")
 async def chat_endpoint(
     user_message: str = Body(..., embed=True), 
-    authorization: str = Header(...),
-    db: AsyncSession = Depends(get_db)
+    authorization: str = Depends(get_and_set_auth_token),
+    db: AsyncSession = Depends(get_and_set_db_session)
 ):
-    # 1. Set the global context variables for Zero-Trust extraction
-    token = authorization.split(" ")[1] if " " in authorization else authorization
-    auth_token_var.set(token)
-    db_session_var.set(db)
-    
-    # 2. Initialize state. (Remember: Node 1 handles historical_messages)
+    # 1. Initialize state (Dependencies already set the global context vars)
     initial_state = {
         "messages": [user_message]
     }
     
-    # 3. The Filtered Generator
-    async def token_generator():
-        # Listen to all events happening inside the graph execution
-        async for event in agent_app.astream_events(initial_state, version="v2"):
-            kind = event["event"]
-            
-            # Filter strictly for the LLM generating a new token
-            if kind == "on_chat_model_stream":
-                chunk = event["data"]["chunk"]
-                
-                # --- THE FILTERING LOGIC ---
-                
-                # Condition A: The LLM is writing JSON to call a tool. 
-                # Ignore these chunks so they do not bleed into the UI.
-                if chunk.tool_call_chunks:
-                    continue
-                
-                # Condition B: The LLM is speaking to the user.
-                # Yield the text immediately to the active HTTP connection.
-                if chunk.content:
-                    yield chunk.content
-
-    # 4. Return the generator wrapped in a FastAPI StreamingResponse
-    return StreamingResponse(token_generator(), media_type="text/event-stream")
+    # 2. Execute the entire graph synchronously
+    # This waits for Node 1 -> LLM -> Tools -> LLM -> Save to completely finish.
+    final_state = await agent_app.ainvoke(initial_state)
+    
+    # 3. Extract the final AI response
+    # The 'messages' array holds the active session. The last item is the final AI reply.
+    final_ai_message = final_state["messages"][-1].content
+    
+    # 4. Return a clean JSON object for Swagger
+    return {
+        "response": final_ai_message
+    }

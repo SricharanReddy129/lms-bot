@@ -2,13 +2,14 @@ from langsmith import traceable
 from langgraph.prebuilt import ToolNode
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage
+from langchain_core.messages import messages_from_dict, messages_to_dict
 
 from dotenv import load_dotenv
 
-import contextvars
+#import depencies for context extraction
 import jwt
-from typing import Dict, Any
-from langchain_core.messages import messages_from_dict, messages_to_dict
+from app.core.context import auth_token_var, db_session_var
+from app.api.deps import get_current_user
 
 # Import your prompt template and state
 from app.agent.prompt import agent_prompt
@@ -68,31 +69,37 @@ async def initialize_context(state: dict) -> dict:
     Node 1: Intercepts the request, decodes identity via keyless JWT, 
     fetches history, and perfectly deserializes database memory.
     """
-    # Your existing context variable (set by your FastAPI middleware/dependency)
-    auth_token_var: contextvars.ContextVar[str] = contextvars.ContextVar("auth_token")
-    db_session_var: contextvars.ContextVar[AsyncSession] = contextvars.ContextVar("db_session")
-
+    
     # Step 1: Intercept the raw token securely
     try:
         token = auth_token_var.get()
     except LookupError:
         raise ValueError("Authentication token not found in request context.")
 
-    # Step 2: Decode the keyless JWT for UX context
+    # Step 2: Decode the keyless JWT natively inside the node
     try:
-        decoded_payload = jwt.decode(token, key="", algorithms=["none"])
+        decoded_payload = jwt.decode(
+            token, 
+            options={"verify_signature": False}, 
+            algorithms=["none"]
+        )
         
+        # Extract the required claims
         user_data = {
-            "employee_id": decoded_payload.get("id"),
-            "employee_name": decoded_payload.get("name"),
-            "role": decoded_payload.get("role")
+            "employee_id": int(decoded_payload["id"]),
+            "employee_name": decoded_payload["name"],
+            "role": decoded_payload["role"]
         }
+        
     except jwt.DecodeError:
         raise ValueError("Invalid token format or failed to decode payload.")
+    except KeyError as e:
+        # Fails securely if the JWT is missing 'id', 'name', or 'role'
+        raise ValueError(f"Token payload is missing required context: {e}")
 
     # Step 3: Fetch long-term memory from MySQL using the newly decoded ID
     db_session = db_session_var.get()
-    db_row = await fetch_chat_history_from_mysql(db_session=db_session, employee_id=user_data["employee_id"])
+    db_row = await fetch_chat_history_from_mysql(db=db_session, employee_id=user_data["employee_id"])
 
     # Step 4: Deserialize and prepare the state payload
     if db_row:
@@ -102,6 +109,9 @@ async def initialize_context(state: dict) -> dict:
         # LangChain instantly converts the dictionaries back into their 
         # exact original classes (HumanMessage, ToolMessage, etc.)
         hydrated_messages = messages_from_dict(raw_message_dicts)
+    else:
+        # If no history exists for this user, start with an empty array
+        hydrated_messages = []
         
 
     # Return exactly what needs to be injected into the LangGraph state
@@ -130,7 +140,7 @@ async def call_model(state: AgentState) -> dict:
     # will halt immediately with a KeyError, preventing an unauthenticated ghost-run.
     name = user_ctx["employee_name"]
     role = user_ctx["role"]
-    id = user_ctx["id"]
+    id = user_ctx["employee_id"]
     
     # 3. Dynamically construct the user context message
     context_string = f"Current Session Context:\nUser Name: {name}\nRole: {role}\nEmployee ID: {id}"
@@ -171,8 +181,6 @@ async def save_memory(state: AgentState) -> dict:
     Node 5: The Persistence Engine.
     Enforces a strict 15-message sliding window and saves the raw history to MySQL.
     """
-    # Your existing context variable (set by your FastAPI middleware/dependency)
-    db_session_var: contextvars.ContextVar[AsyncSession] = contextvars.ContextVar("db_session")
     
     # 1. Retrieve the database session injected by the FastAPI route
     db_session = db_session_var.get()
