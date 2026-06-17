@@ -142,7 +142,7 @@ async def call_model(state: AgentState) -> dict:
         "dynamic_user_context": [context_message], 
         
         # The database history array from Node 1 (falls back to empty list if new user)
-        "history": memory.get("recent_history_slice", []),
+        "history": memory["recent_history_slice"] if memory else [] ,
         
         # The active graph timeline (including the user's immediate question)
         "messages": state["messages"] 

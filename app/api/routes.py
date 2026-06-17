@@ -154,17 +154,17 @@ async def chat_endpoint(
     authorization: str = Header(...),
     db: AsyncSession = Depends(get_db)
 ):
-    # 1. Set the global context variables
+    # 1. Set the global context variables for Zero-Trust extraction
     token = authorization.split(" ")[1] if " " in authorization else authorization
     auth_token_var.set(token)
     db_session_var.set(db)
     
-    # 2. Initialize state using just the raw string (LangGraph auto-casts to HumanMessage)
+    # 2. Initialize state. (Remember: Node 1 handles historical_messages)
     initial_state = {
         "messages": [user_message]
     }
     
-    # 3. Define the asynchronous generator for token streaming
+    # 3. The Filtered Generator
     async def token_generator():
         # Listen to all events happening inside the graph execution
         async for event in agent_app.astream_events(initial_state, version="v2"):
@@ -172,11 +172,19 @@ async def chat_endpoint(
             
             # Filter strictly for the LLM generating a new token
             if kind == "on_chat_model_stream":
-                # Extract the specific word/character chunk
-                content = event["data"]["chunk"].content
-                if content:
-                    # Yield it immediately to the active HTTP connection
-                    yield content
+                chunk = event["data"]["chunk"]
+                
+                # --- THE FILTERING LOGIC ---
+                
+                # Condition A: The LLM is writing JSON to call a tool. 
+                # Ignore these chunks so they do not bleed into the UI.
+                if chunk.tool_call_chunks:
+                    continue
+                
+                # Condition B: The LLM is speaking to the user.
+                # Yield the text immediately to the active HTTP connection.
+                if chunk.content:
+                    yield chunk.content
 
     # 4. Return the generator wrapped in a FastAPI StreamingResponse
     return StreamingResponse(token_generator(), media_type="text/event-stream")
