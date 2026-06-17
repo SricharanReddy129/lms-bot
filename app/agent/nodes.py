@@ -5,6 +5,7 @@ from langchain_core.messages import SystemMessage
 from langchain_core.messages import messages_from_dict, messages_to_dict
 
 from dotenv import load_dotenv
+import datetime
 
 #import depencies for context extraction
 import jwt
@@ -17,8 +18,7 @@ from app.agent.state import AgentState
 
 # import the database fetch functions
 from app.repositories.fetch_chat_history_repo import fetch_chat_history_from_mysql
-from app.repositories.update_chat_history_repo import update_chat_history
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.repositories.update_chat_history_repo import upsert_chat_history
 
 # Import all individual tool files based on your directory structure
 from app.agent.tools.leave_balance_tool import view_my_leave_balance, view_employee_leave_balance
@@ -179,35 +179,41 @@ async def call_model(state: AgentState) -> dict:
 async def save_memory(state: AgentState) -> dict:
     """
     Node 5: The Persistence Engine.
-    Enforces a strict 15-message sliding window and saves the raw history to MySQL.
+    Enforces a 15-message sliding window, injects timestamps, and upserts to MySQL.
     """
-    
-    # 1. Retrieve the database session injected by the FastAPI route
     db_session = db_session_var.get()
-    
-    # 2. Strict Zero-Trust Identity Extraction
     employee_id = state["user_context"]["employee_id"]
+    thread_id = f"thread_{employee_id}" 
     
-    # 3. Retrieve the complete timeline from the state
     all_messages = state["messages"]
     
-    # 4. Enforce the 15-message sliding window
     if len(all_messages) > 15:
-        # Keep only the most recent 15 messages
         recent_messages = all_messages[-15:]
     else:
         recent_messages = all_messages
         
-    # 5. Serialize the LangChain objects back into a standard Python list of dicts
-    # This automatically converts HumanMessage, AIMessage, and ToolMessage into JSON-safe dictionaries
+    # Serialize the LangChain objects back into dictionaries
     serialized_history = messages_to_dict(recent_messages)
     
-    # 6. Execute the database update
-    await update_chat_history(
+    # Generate a single UTC timestamp for the current graph execution cycle
+    current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    
+    # Inject the timestamp into the freshly generated messages
+    for msg in serialized_history:
+        # LangChain nests the actual content and kwargs inside a "data" dictionary
+        data_block = msg.get("data", {})
+        
+        # Only inject if it doesn't already exist. 
+        # This preserves the original timestamps of older history pulled in Node 1.
+        if "timestamp" not in data_block:
+            data_block["timestamp"] = current_time
+            
+    # Execute the Upsert
+    await upsert_chat_history(
         db=db_session, 
         employee_id=employee_id, 
+        thread_id=thread_id,
         messages_json=serialized_history
     )
     
-    # Node 4 handles side-effects only. Returning an empty dict means no state mutations.
     return {}
