@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import contextvars
 import jwt
 from typing import Dict, Any
-from langchain_core.messages import messages_from_dict
+from langchain_core.messages import messages_from_dict, messages_to_dict
 
 # Import your prompt template and state
 from app.agent.prompt import agent_prompt
@@ -16,6 +16,7 @@ from app.agent.state import AgentState
 
 # import the database fetch functions
 from app.repositories.fetch_chat_history_repo import fetch_chat_history_from_mysql
+from app.repositories.update_chat_history_repo import update_chat_history
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import all individual tool files based on your directory structure
@@ -160,3 +161,45 @@ async def call_model(state: AgentState) -> dict:
     # 8. Return the partial state update
     # The 'add_messages' reducer will append this AIMessage to state["messages"]
     return {"messages": [response]}
+
+# =========================================================
+# 5. SAVE HISTORY NODE
+# =========================================================
+
+async def save_memory(state: AgentState) -> dict:
+    """
+    Node 5: The Persistence Engine.
+    Enforces a strict 15-message sliding window and saves the raw history to MySQL.
+    """
+    # Your existing context variable (set by your FastAPI middleware/dependency)
+    db_session_var: contextvars.ContextVar[AsyncSession] = contextvars.ContextVar("db_session")
+    
+    # 1. Retrieve the database session injected by the FastAPI route
+    db_session = db_session_var.get()
+    
+    # 2. Strict Zero-Trust Identity Extraction
+    employee_id = state["user_context"]["employee_id"]
+    
+    # 3. Retrieve the complete timeline from the state
+    all_messages = state["messages"]
+    
+    # 4. Enforce the 15-message sliding window
+    if len(all_messages) > 15:
+        # Keep only the most recent 15 messages
+        recent_messages = all_messages[-15:]
+    else:
+        recent_messages = all_messages
+        
+    # 5. Serialize the LangChain objects back into a standard Python list of dicts
+    # This automatically converts HumanMessage, AIMessage, and ToolMessage into JSON-safe dictionaries
+    serialized_history = messages_to_dict(recent_messages)
+    
+    # 6. Execute the database update
+    await update_chat_history(
+        db=db_session, 
+        employee_id=employee_id, 
+        messages_json=serialized_history
+    )
+    
+    # Node 4 handles side-effects only. Returning an empty dict means no state mutations.
+    return {}
