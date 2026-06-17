@@ -103,14 +103,23 @@ async def initialize_context(state: dict) -> dict:
 
     # Step 4: Deserialize and prepare the state payload
     if db_row:
-        # Extract the JSON array of dictionaries from your database row
-        raw_message_dicts = db_row.get("recent_messages", [])
+        # 1. Safely extract the first row from the list
+        actual_row = db_row[0]
         
-        # LangChain instantly converts the dictionaries back into their 
+        # 2. Extract the JSON array using the correct column name ('messages')
+        # This handles both raw dictionaries and SQLAlchemy ORM objects
+        if isinstance(actual_row, dict):
+            raw_message_dicts = actual_row.get("messages", [])
+        else:
+            raw_message_dicts = getattr(actual_row, "messages", [])
+        
+        # 3. LangChain instantly converts the dictionaries back into their 
         # exact original classes (HumanMessage, ToolMessage, etc.)
-        hydrated_messages = messages_from_dict(raw_message_dicts)
+        if raw_message_dicts:
+            hydrated_messages = messages_from_dict(raw_message_dicts)
+        else:
+            hydrated_messages = []
     else:
-        # If no history exists for this user, start with an empty array
         hydrated_messages = []
         
 
