@@ -102,20 +102,12 @@ async def initialize_context(state: dict) -> dict:
         # exact original classes (HumanMessage, ToolMessage, etc.)
         hydrated_messages = messages_from_dict(raw_message_dicts)
         
-        conversation_summary = db_row.get("conversation_summary", "No prior history.")
-    else:
-        # Handle the case where this is the employee's very first thread
-        hydrated_messages = []
-        conversation_summary = "New user. No prior history."
 
     # Return exactly what needs to be injected into the LangGraph state
     return {
         "user_context": user_data,
-        "long_term_memory": {
-            "conversation_summary": conversation_summary,
-            "recent_history_slice": hydrated_messages
+        "recent_history_slice": hydrated_messages
         }
-    }
 
 # =========================================================
 # 4. THE EXECUTION NODE
@@ -129,7 +121,7 @@ async def call_model(state: AgentState) -> dict:
     """
     # 1. Safely extract the memory dictionaries from the state
     user_ctx = state.get("user_context", {})
-    memory = state.get("long_term_memory", {})
+    memory = state.get("recent_history_slice", [])  # This is already a list of BaseMessage objects, ready for the prompt
     
     # 2. Strict Zero-Trust Extraction
     # Using direct bracket notation instead of .get() intentionally.
