@@ -169,20 +169,31 @@ async def call_model(state: AgentState) -> dict:
 async def save_memory(state: AgentState) -> dict:
     """
     Node 5: The Persistence Engine.
-    Enforces a 15-message sliding window, injects timestamps, and upserts to MySQL.
+    Merges past and present, enforces a sliding window, injects timestamps, and upserts to MySQL.
     """
     db_session = db_session_var.get()
     employee_id = state["user_context"]["employee_id"]
     thread_id = f"thread_{employee_id}" 
     
-    all_messages = state["messages"]
+    # --- THE ZIPPER FIX ---
+    # 1. Pull the past history (defaults to empty list if it's a new conversation)
+    past_history = state.get("recent_history_slice", [])
     
-    if len(all_messages) > 8:
-        recent_messages = all_messages[-8:]
+    # 2. Pull the newly generated messages from the current HTTP request
+    current_messages = state["messages"]
+    
+    # 3. Combine them using standard list addition. 
+    # This perfectly preserves them as intact LangChain Message objects.
+    full_timeline = past_history + current_messages
+    
+    # --- SLIDING WINDOW ---
+    # 4. Apply the window to the complete, merged timeline
+    if len(full_timeline) > 8:
+        recent_messages = full_timeline[-8:]
     else:
-        recent_messages = all_messages
+        recent_messages = full_timeline
         
-    # Serialize the LangChain objects back into dictionaries
+    # Serialize the LangChain objects back into dictionaries for database storage
     serialized_history = messages_to_dict(recent_messages)
     
     # Generate a single UTC timestamp for the current graph execution cycle
@@ -190,7 +201,6 @@ async def save_memory(state: AgentState) -> dict:
     
     # Inject the timestamp into the freshly generated messages
     for msg in serialized_history:
-        # LangChain nests the actual content and kwargs inside a "data" dictionary
         data_block = msg.get("data", {})
         
         # Only inject if it doesn't already exist. 
