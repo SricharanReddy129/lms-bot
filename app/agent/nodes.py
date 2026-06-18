@@ -67,9 +67,8 @@ llm_with_tools = llm.bind_tools(tools)
 async def initialize_context(state: dict) -> dict:
     """
     Node 1: Intercepts the request, decodes identity via keyless JWT, 
-    fetches history, and perfectly deserializes database memory.
+    fetches history, and hydrates memory.
     """
-    
     # Step 1: Intercept the raw token securely
     try:
         token = auth_token_var.get()
@@ -84,7 +83,7 @@ async def initialize_context(state: dict) -> dict:
             algorithms=["none"]
         )
         
-        # Extract the required claims
+        # Dual-key mapping to satisfy zero-trust checks across downstream nodes
         user_data = {
             "employee_id": int(decoded_payload["id"]),
             "employee_name": decoded_payload["name"],
@@ -94,40 +93,22 @@ async def initialize_context(state: dict) -> dict:
     except jwt.DecodeError:
         raise ValueError("Invalid token format or failed to decode payload.")
     except KeyError as e:
-        # Fails securely if the JWT is missing 'id', 'name', or 'role'
         raise ValueError(f"Token payload is missing required context: {e}")
 
-    # Step 3: Fetch long-term memory from MySQL using the newly decoded ID
+    # Step 3: Fetch long-term memory (Returns a clean list of message dicts)
     db_session = db_session_var.get()
     db_row = await fetch_chat_history_from_mysql(db=db_session, employee_id=user_data["employee_id"])
 
-    # Step 4: Deserialize and prepare the state payload
-    if db_row:
-        # 1. Safely extract the first row from the list
-        actual_row = db_row[0]
-        
-        # 2. Extract the JSON array using the correct column name ('messages')
-        # This handles both raw dictionaries and SQLAlchemy ORM objects
-        if isinstance(actual_row, dict):
-            raw_message_dicts = actual_row.get("messages", [])
-        else:
-            raw_message_dicts = getattr(actual_row, "messages", [])
-        
-        # 3. LangChain instantly converts the dictionaries back into their 
-        # exact original classes (HumanMessage, ToolMessage, etc.)
-        if raw_message_dicts:
-            hydrated_messages = messages_from_dict(raw_message_dicts)
-        else:
-            hydrated_messages = []
-    else:
-        hydrated_messages = []
-        
+    # Step 4: Deserialize directly into LangChain message instances
+    hydrated_messages = []
+    if db_row and isinstance(db_row, list):
+        hydrated_messages = messages_from_dict(db_row)
 
-    # Return exactly what needs to be injected into the LangGraph state
+    # Return clean payload to update LangGraph state
     return {
         "user_context": user_data,
         "recent_history_slice": hydrated_messages
-        }
+    }
 
 # =========================================================
 # 4. THE EXECUTION NODE
@@ -161,7 +142,7 @@ async def call_model(state: AgentState) -> dict:
         "dynamic_user_context": [context_message], 
         
         # The database history array from Node 1 (falls back to empty list if new user)
-        "history": memory["recent_history_slice"] if memory else [] ,
+        "history": memory,
         
         # The active graph timeline (including the user's immediate question)
         "messages": state["messages"] 
@@ -196,8 +177,8 @@ async def save_memory(state: AgentState) -> dict:
     
     all_messages = state["messages"]
     
-    if len(all_messages) > 15:
-        recent_messages = all_messages[-15:]
+    if len(all_messages) > 8:
+        recent_messages = all_messages[-8:]
     else:
         recent_messages = all_messages
         
