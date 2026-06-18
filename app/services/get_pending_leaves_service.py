@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import the repository layer execution function
 from app.repositories.get_employee_names_by_ids_repo import get_employee_names_by_ids
-from app.repositories.get_pending_leaves_by_id_repo import get_pending_leaves_by_id
+from app.repositories.get_pending_leaves_by_employee_id_repo import get_pending_leaves_by_employee_id
 from app.repositories.get_all_pending_leaves_repo import get_all_pending_leaves
 
 async def get_pending_leaves(
@@ -17,7 +17,7 @@ async def get_pending_leaves(
     # --- 1. ROLE-BASED FETCHING ---
     if current_user["role"] == "approver":
         if target_employee_id is not None:
-            pending_leaves = await get_pending_leaves_by_id(db, employee_id=target_employee_id)
+            pending_leaves = await get_pending_leaves_by_employee_id(db, employee_id=target_employee_id)
             if not pending_leaves:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -39,7 +39,7 @@ async def get_pending_leaves(
                 detail="You do not have permission to view other employees' pending leaves."
             )
             
-        pending_leaves = await get_pending_leaves_by_id(db, employee_id=target_employee_id)
+        pending_leaves = await get_pending_leaves_by_employee_id(db, employee_id=target_employee_id)
         if not pending_leaves:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

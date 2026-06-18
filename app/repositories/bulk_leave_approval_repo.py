@@ -1,46 +1,52 @@
-from sqlalchemy import select, delete
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # import both your models here:
-from app.models.base import PendingLeaves, ApprovedLeaves
+from app.models.base import PendingLeaves, ApprovedLeaves, LeaveBalance
 
-async def bulk_leave_approval(db: AsyncSession, leave_ids: list[int]):
-    # --- 1. FETCH ---
-    # First, we must grab the pending data before we delete it
-    fetch_stmt = select(PendingLeaves).where(PendingLeaves.sno.in_(leave_ids))
-    result = await db.execute(fetch_stmt)
-    pending_records = result.scalars().all()
-
-    # If the list of IDs doesn't match anything in the database, stop here
-    if not pending_records:
-        return []
-
-    # --- 2. INSERT ---
-    # Create new instances of the ApprovedLeaves model using the pending data
+async def bulk_leave_approval(db: AsyncSession, approval_payload: list[dict]):
+    """
+    Phase 2: Atomic transaction for Insert, Update (Deduction), and Delete.
+    Expects a payload containing the pending record, target column, and deduction amount.
+    """
     approved_objects_to_insert = []
-    for pending in pending_records:
+    leave_ids_to_delete = []
+
+    for item in approval_payload:
+        pending = item["pending_record"]
+        leave_ids_to_delete.append(pending.sno)
+
+        # 1. Prepare Insert
         new_approved_leave = ApprovedLeaves(
-            leave_id=pending.sno,             # <-- ADDED: Safely stores the original pending ID
+            leave_id=pending.sno,
             employee_id=pending.employee_id,
             leave_type=pending.leave_type,
             start_date=pending.start_date,
             end_date=pending.end_date
-            # <-- REMOVED: reason is no longer passed here
         )
         approved_objects_to_insert.append(new_approved_leave)
-    
-    # Add all new records to the session in one bulk operation
+
+        # 2. Execute dynamic balance deduction
+        column_name = item["target_column"]
+        deduction = item["days_to_deduct"]
+        emp_id = item["employee_id"]
+
+        # Dynamically target the correct column (e.g., LeaveBalance.sick_leaves)
+        balance_column = getattr(LeaveBalance, column_name)
+        
+        deduct_stmt = (
+            update(LeaveBalance)
+            .where(LeaveBalance.employee_id == emp_id)
+            .values({column_name: balance_column - deduction})
+        )
+        await db.execute(deduct_stmt)
+
+    # 3. Add all new approved records
     db.add_all(approved_objects_to_insert)
 
-    # --- 3. DELETE ---
-    # Remove the old records from the pending table
-    delete_stmt = delete(PendingLeaves).where(PendingLeaves.sno.in_(leave_ids))
+    # 4. Remove old pending records
+    delete_stmt = delete(PendingLeaves).where(PendingLeaves.sno.in_(leave_ids_to_delete))
     await db.execute(delete_stmt)
 
-    # --- 4. COMMIT ---
-    # Execute the insert and delete together as one atomic transaction
+    # 5. Commit everything atomically
     await db.commit()
-
-    # Return the original pending records list! 
-    # Your service layer will use this list to hydrate the employee names and build the API receipts.
-    return pending_records

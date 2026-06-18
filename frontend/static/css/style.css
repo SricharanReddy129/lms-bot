@@ -1,0 +1,90 @@
+/* ── Layout ── */
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+#sidebar {
+  width: 240px;
+  min-width: 240px;
+}
+
+/* ── Sidebar nav ── */
+#sidebar .nav-link {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#sidebar .nav-link.active {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+
+#sidebar .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+/* ── Section fade-in ── */
+.content-section {
+  animation: fadeIn 0.15s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Leave balance stat cards ── */
+.balance-card h2 {
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: #0d6efd;
+}
+
+/* ── Chat bubbles ── */
+.chat-bubble {
+  max-width: 70%;
+  word-wrap: break-word;
+  line-height: 1.55;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+}
+
+.user-bubble {
+  background-color: #0d6efd;
+  color: #fff;
+  border-radius: 18px 18px 4px 18px;
+}
+
+.bot-bubble {
+  background-color: #f1f3f4;
+  color: #212529;
+  border-radius: 18px 18px 18px 4px;
+}
+
+/* ── Toast container ── */
+#toast-container {
+  z-index: 9999;
+}
+
+/* ── Login card ── */
+.login-card {
+  width: 420px;
+  border: none;
+}
+
+/* ── Tables ── */
+.table th {
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6c757d;
+}
+
+/* ── Responsive: hide sidebar on small screens ── */
+@media (max-width: 768px) {
+  #sidebar {
+    display: none !important;
+  }
+}

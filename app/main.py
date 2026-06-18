@@ -1,5 +1,9 @@
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
@@ -15,8 +19,35 @@ load_dotenv()
 
 app = FastAPI(title="LMS Bot API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+templates = Jinja2Templates(directory="frontend/templates")
+
 # ---------------------------------------------------------
-# 1. PUBLIC ROUTES (Open to the internet)
+# 1. FRONTEND PAGE ROUTES
+# ---------------------------------------------------------
+
+@app.get("/", response_class=HTMLResponse, tags=["Frontend"])
+async def serve_login(request: Request):
+    return templates.TemplateResponse(request=request, name="login.html")
+
+@app.get("/dashboard", response_class=HTMLResponse, tags=["Frontend"])
+async def serve_dashboard(request: Request):
+    return templates.TemplateResponse(request=request, name="dashboard.html")
+
+@app.get("/chat", response_class=HTMLResponse, tags=["Frontend"])
+async def serve_chat(request: Request):
+    return templates.TemplateResponse(request=request, name="chat.html")
+
+# ---------------------------------------------------------
+# 2. PUBLIC ROUTES (Open to the internet)
 # ---------------------------------------------------------
 
 @app.post("/login", response_model=LoginResponse, tags=["Public"])
