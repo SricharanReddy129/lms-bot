@@ -78,7 +78,7 @@ async def initialize_context(state: dict) -> dict:
     # Step 2: Centralized Token Validation (Issuer/OAuth)
     # Replaced local keyless decoding with a secure, centralized issuer validation
     try:
-        # Call your actual OAuth/Issuer service here
+        # decode jwt token
         issuer_payload = jwt.decode(
             token, 
             options={"verify_signature": False},  # Still no signature verification here, but now it's a trusted issuer
