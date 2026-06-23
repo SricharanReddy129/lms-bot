@@ -81,11 +81,11 @@ Assistant:
 agent_prompt = ChatPromptTemplate.from_messages([
     ("system", system_instruction),
     
-    # Placeholder 1: The dynamic user identity payload
-    MessagesPlaceholder(variable_name="dynamic_user_context"),
+    # Expects a simple string string formatted into {dynamic_user_context}
+    ("system", "Dynamic Employee Context:\n{dynamic_user_context}"),
     
     # Placeholder 2: The database history
-    MessagesPlaceholder(variable_name="history"),
+    MessagesPlaceholder(variable_name="recent_history_slice"),
     
     # Placeholder 3: The active graph timeline
     MessagesPlaceholder(variable_name="messages"),

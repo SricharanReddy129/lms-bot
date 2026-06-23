@@ -7,8 +7,8 @@ from fastapi.security import HTTPBearer
 
 # Import your compiled graph and context variables
 from app.agent.graph import agent_app
-from app.core.context import auth_token_var, db_session_var
 from app.core.database import get_db
+from langchain_core.messages import HumanMessage
 
 # Import the token extractor/setter dependency
 from app.api.deps import get_and_set_auth_token, get_and_set_db_session
@@ -156,7 +156,7 @@ async def chat_endpoint(
 ):
     # 1. Initialize state (Dependencies already set the global context vars)
     initial_state = {
-        "messages": [user_message]
+        "messages": [HumanMessage(content=user_message)]
     }
     
     # 2. Execute the entire graph synchronously

@@ -30,6 +30,8 @@ from app.agent.tools.reject_leaves_tool import reject_leave_requests
 from app.agent.tools.view_approved_leaves_tool import view_my_approved_leaves, view_team_approved_leaves
 from app.agent.tools.view_rejected_leaves_tool import view_my_rejected_leaves, view_team_rejected_leaves
 
+import json
+
 load_dotenv()
 
 # =========================================================
@@ -141,26 +143,25 @@ async def call_model(state: AgentState) -> dict:
     
     # 3. Dynamically construct the user context message
     context_string = f"Current Session Context:\nUser Name: {name}\nRole: {role}\nEmployee ID: {id}"
-    context_message = SystemMessage(content=context_string)
     
+    # Extract and format the dictionary into a simple string
+    user_context_dict = state["user_context"]
+    context_string = f"Name: {user_context_dict['employee_name']}, ID: {user_context_dict['employee_id']}, Role: {user_context_dict['role']}"
+
     # 4. Map all variables exactly to the Prompt Template placeholders
     prompt_args = {
-        # Wrapped in a list to satisfy the MessagesPlaceholder requirement
-        "dynamic_user_context": [context_message], 
+        # Passing the raw string directly to the system tuple
+        "dynamic_user_context": context_string, 
         
-        # The database history array from Node 1 (falls back to empty list if new user)
-        "history": memory,
+        # FIXED: Renamed from "history" to strictly match the Prompt's placeholder
+        "recent_history_slice": memory,
         
         # The active graph timeline (including the user's immediate question)
         "messages": state["messages"] 
     }
     
-    # 5. Bind the secure HR tools to the LLM
-    llm_with_tools = llm.bind_tools(tools)
-    
     # 6. Pipe the fully populated prompt into the tool-bound LLM
     chain = agent_prompt | llm_with_tools
-    
     # 7. Execute the chain
     # Streaming tokens will be caught natively by your FastAPI astream_events router
     response = await chain.ainvoke(prompt_args)
@@ -176,31 +177,34 @@ async def call_model(state: AgentState) -> dict:
 async def save_memory(state: AgentState) -> dict:
     """
     Node 5: The Persistence Engine.
-    Merges past and present, enforces a sliding window, injects timestamps, and upserts to MySQL.
+    Merges past and present, enforces a turn-based sliding window, 
+    injects timestamps, and upserts to MySQL.
     """
     db_session = db_session_var.get()
     employee_id = state["user_context"]["employee_id"]
     thread_id = f"thread_{employee_id}" 
     
-    # --- THE ZIPPER FIX ---
     # 1. Pull the past history (defaults to empty list if it's a new conversation)
     past_history = state.get("recent_history_slice", [])
     
     # 2. Pull the newly generated messages from the current HTTP request
     current_messages = state["messages"]
     
-    # 3. Combine them using standard list addition. 
-    # This perfectly preserves them as intact LangChain Message objects.
+    # 3. Combine them into an intact timeline of LangChain Message objects
     full_timeline = past_history + current_messages
     
-    # --- SLIDING WINDOW ---
-    # 4. Apply the window to the complete, merged timeline
-    if len(full_timeline) > 8:
-        recent_messages = full_timeline[-8:]
+    # --- TURN-BASED SLIDING WINDOW ---
+    # Find the indices of all HumanMessages in the timeline
+    human_indices = [i for i, msg in enumerate(full_timeline) if msg.type == "human"]
+    
+    # If there are more than 8 human turns, slice from the 8th most recent HumanMessage
+    if len(human_indices) > 8:
+        start_index = human_indices[-8]
+        recent_messages = full_timeline[start_index:]
     else:
         recent_messages = full_timeline
         
-    # Serialize the LangChain objects back into dictionaries for database storage
+    # 4. Serialize the LangChain objects back into dictionaries for database storage
     serialized_history = messages_to_dict(recent_messages)
     
     # Generate a single UTC timestamp for the current graph execution cycle
@@ -211,11 +215,11 @@ async def save_memory(state: AgentState) -> dict:
         data_block = msg.get("data", {})
         
         # Only inject if it doesn't already exist. 
-        # This preserves the original timestamps of older history pulled in Node 1.
+        # This preserves the original timestamps of older history.
         if "timestamp" not in data_block:
             data_block["timestamp"] = current_time
             
-    # Execute the Upsert
+    # 5. Execute the Upsert to MySQL
     await upsert_chat_history(
         db=db_session, 
         employee_id=employee_id, 
